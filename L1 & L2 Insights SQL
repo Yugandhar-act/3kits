@@ -1,0 +1,157 @@
+-- Lead Owner Changed
+with delta_records as (
+  SELECT *,
+         ROW_NUMBER() OVER(PARTITION BY id ORDER BY _airbyte_start_at desc) as r 
+  FROM  threekit.salesforce_lead_scd 
+  where _airbyte_start_at > '2023-05-01 07:35:28+00'),
+old_records as (
+  select *, 
+         ROW_NUMBER() OVER(PARTITION BY id ORDER BY _airbyte_start_at DESC) as r 
+   from threekit.salesforce_lead_scd where id in (select id from delta_records) and _airbyte_start_at < '2023-05-01 05:03:58+00'),
+track_owner as (
+  select delta_records.id,
+         delta_records.name,
+         delta_records.ownerid,  
+         delta_records._airbyte_start_at as new_airbyte_start_at, 
+         old_records._airbyte_start_at as old_airbyte_start_at, 
+         old_records.ownerid as old_owner_id
+   from delta_records left join old_records on delta_records.id = old_records.id where old_records.r = 1 and delta_records.r = 1) select * from track_owner;
+
+
+
+-- Opportunity Stage - Changed to 'Closed WON'
+with delta_records as (
+  SELECT *,
+         ROW_NUMBER() OVER(PARTITION BY id ORDER BY _airbyte_start_at desc) as r 
+  FROM  threekit.salesforce_opportunity_scd as scd1
+  where _airbyte_start_at > '2023-05-01 07:35:28+00'),
+old_records as (
+  select *, 
+         ROW_NUMBER() OVER(PARTITION BY id ORDER BY _airbyte_start_at DESC) as r 
+   from threekit.salesforce_opportunity_scd as scd where id in (select id from delta_records)and _airbyte_start_at < '2023-05-01 07:35:28+00'),
+   
+   track_oppStage as (
+  select delta_records.id,
+         delta_records.name,
+         delta_records.ownerid,
+         delta_records.stagename,
+         delta_records._airbyte_start_at as new_airbyte_start_at, 
+         old_records._airbyte_start_at as old_airbyte_start_at, 
+         old_records.stagename as old_stagename
+   from delta_records left join old_records on delta_records.id = old_records.id where old_records.r = 1 and delta_records.r = 1) select * from track_oppStage;
+
+
+
+-- Opportunity Owner Changed
+with delta_records as (
+  SELECT *,
+         ROW_NUMBER() OVER(PARTITION BY id ORDER BY _airbyte_start_at desc) as r 
+  FROM  threekit.salesforce_opportunity_scd 
+  where _airbyte_start_at > '2023-05-01 05:03:58+00'),
+old_records as (
+  select *, 
+         ROW_NUMBER() OVER(PARTITION BY id ORDER BY _airbyte_start_at DESC) as r 
+   from threekit.salesforce_opportunity_scd where id in (select id from delta_records) and _airbyte_start_at < '2023-05-01 05:03:58+00'),
+track_owner as (
+  select delta_records.id,
+         delta_records.name,
+         delta_records.ownerid,
+         delta_records.accountid,  
+         delta_records._airbyte_start_at as new_airbyte_start_at, 
+         old_records._airbyte_start_at as old_airbyte_start_at, 
+         old_records.ownerid as old_owner_id
+   from delta_records left join old_records on delta_records.id = old_records.id where old_records.r = 1 and delta_records.r = 1) select * from track_owner;
+
+
+
+-- Opportunity stuck in any stage for more than 15 days
+SELECT opp.id, opp.stagename, opp.stage_duration__c, opp.ownerid
+FROM threekit.salesforce_opportunity opp
+WHERE opp.isclosed IS FALSE AND opp.stage_duration__c > 15 ; -- AND opp.recordtypeid = '0120b0000006dJtAAI'; -- RecordType - 'Sales
+
+
+-- Upcoming Task of type 'Meeting'
+SELECT id, whoid, whatid, activitydate, ownerid, type
+FROM threekit.salesforce_task
+WHERE DATEDIFF(DAY, CURRENT_DATE, DATE(activitydate)) > 0 AND isclosed IS FALSE AND type IN ('Meeting', 'Task', 'Email');
+
+
+-- Tasks Overdue
+SELECT id, whoid, whatid, activitydate, ownerid, DATEDIFF(DAY, activitydate, CURRENT_DATE) AS date_diff
+FROM threekit.salesforce_task
+WHERE DATEDIFF(DAY, DATE(activitydate), CURRENT_DATE) > 0 AND isclosed IS FALSE AND type IN ('Meeting', 'Task', 'Email');
+
+
+
+-- Untouched leads which were created in last 30 days and of age at least 1 day
+SELECT id, name, status, leadsource, createddate, first_activity_time__c, ownerid
+FROM threekit.salesforce_lead
+WHERE leadsource IN ('Website', 'Event') AND first_activity_time__c IS NULL
+  AND DATEDIFF(DAY, DATE(createddate), CURRENT_DATE) > 1
+  AND DATEDIFF(DAY, DATE(createddate), CURRENT_DATE) <= 30
+ORDER BY createddate;
+
+
+
+-- Open Sales Opportunities with Closed Date in past
+SELECT id, name, stagename, closedate, accountid, ownerid
+FROM threekit.salesforce_opportunity
+WHERE isclosed IS FALSE AND DATE(closedate) < CURRENT_DATE AND recordtypeid = '0120b0000006dJtAAI';
+
+
+
+-- Open Non-Sales Opportunities with Closed Date in past
+SELECT id, name, stagename, closedate, accountid, ownerid
+FROM threekit.salesforce_opportunity
+WHERE isclosed IS FALSE AND DATE(closedate) < CURRENT_DATE AND recordtypeid != '0120b0000006dJtAAI';
+
+
+
+-- Accounts created in last 30 days by converting the leads which doesn't have any opportunity
+SELECT a.id AS account_id, a.name AS account_name, a.ownerid AS account_ownerid, u.name AS owner_name, a.createddate, l.converteddate
+FROM threekit.salesforce_account a
+INNER JOIN threekit.salesforce_user u ON a.ownerid = u.id
+INNER JOIN threekit.salesforce_contact c ON a.id = c.accountid
+INNER JOIN threekit.salesforce_lead l ON c.Id = l.convertedcontactid
+WHERE l.isconverted IS TRUE AND l.convertedopportunityid IS NULL
+  AND DATEDIFF(DAY, DATE(a.createddate), CURRENT_DATE) <= 30;
+
+
+
+-- Upcoming Events
+SELECT id, whoid, whatid, activitydate, startdatetime, enddatetime, ownerid
+FROM threekit.salesforce_event
+WHERE DATEDIFF(DAY, CURRENT_DATE, DATE(activitydate)) > 0;
+
+
+-- Opportunity's primary contact has changed and Opportunity owner & Account owner are different
+SELECT opp.id, opp.contactid AS new_primary_contact, opp_scd.contactid AS old_primary_contact_id, opp.ownerid, acc.ownerid
+FROM threekit.salesforce_opportunity opp
+INNER JOIN threekit.salesforce_account acc ON acc.id = opp.accountid
+INNER JOIN threekit.salesforce_opportunity_scd opp_scd ON opp.id = opp_scd.id
+WHERE opp_scd._airbyte_active_row = 0
+  AND opp.contactid IS NOT NULL AND opp.isclosed IS FALSE
+  AND opp.contactid != opp_scd.contactid AND opp.ownerid != acc.ownerid;
+
+
+-- Account Owner Changed
+with delta_records as (
+  SELECT *,
+         ROW_NUMBER() OVER(PARTITION BY id ORDER BY _airbyte_start_at desc) as r 
+  FROM  threekit.salesforce_account_scd 
+  where _airbyte_start_at > '2023-05-01 07:35:28+00'),
+old_records as (
+  select *, 
+         ROW_NUMBER() OVER(PARTITION BY id ORDER BY _airbyte_start_at DESC) as r 
+   from threekit.salesforce_account_scd where id in (select id from delta_records) and _airbyte_start_at <= '2023-05-01 07:35:28+00'),
+track_owner as (
+  select delta_records.id,
+         delta_records.name,
+         delta_records.ownerid,  
+         delta_records._airbyte_start_at as new_airbyte_start_at, 
+         old_records._airbyte_start_at as old_airbyte_start_at, 
+         old_records.ownerid as old_owner_id
+   from delta_records left join old_records on delta_records.id = old_records.id where old_records.r = 1 and delta_records.r = 1) select * from track_owner;
+
+
+
