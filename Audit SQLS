@@ -1,0 +1,207 @@
+-- O1) AVG Lifecycle of the all the opportunty records including Negative Deal Duration Days
+
+SELECT  AVG(deal_Duration__c) AS AVG_Life_In_days FROM threekit.salesforce_opportunity;
+
+-- O1A) AVG Lifecycle of the all the opportunity records after nullyfying Negative Deal Duration Days
+
+WITH a AS (SELECT 
+      CASE WHEN deal_Duration__c<0 THEN 0
+     ELSE deal_Duration__c 
+     END AS Life_In_days FROM threekit.salesforce_opportunity)
+
+     SELECT AVG(Life_In_days) AS AVG_Life_In_days FROM a;
+
+
+-- O2) AVG Lifecycle of the all the Sales opportunity records (including Negative Deal Duration Days)
+
+SELECT AVG(deal_Duration__c) AS AVG_Life_In_days_SalesOpportunties FROM threekit.salesforce_opportunity WHERE recordtypeid='0120b0000006dJtAAI';
+
+-- O2A) AVG Lifecycle of the all the Sales OppORtunities records after nullyfying Negative Deal Duration Days
+
+WITH a AS (SELECT 
+     CASE WHEN deal_Duration__c<0 THEN 0
+     ELSE deal_Duration__c 
+     END AS Life_In_days FROM threekit.salesforce_opportunity WHERE recordtypeid='0120b0000006dJtAAI')
+
+     SELECT AVG(Life_In_days) AS AVG_Life_In_days FROM a;
+
+-- O3) AVG Lifecycle of the all the Service opportunity records (including Negative Deal Duration Days) 
+
+SELECT AVG(deal_Duration__c) AS AVG_Life_In_days_SalesOppORtunties FROM threekit.salesforce_opportunity WHERE recordtypeid='0120b0000006dJyAAI';
+
+-- O3A) AVG Lifecycle of the all the Service OppORtunities records after nullyfying Negative Deal Duration Days
+
+WITH a AS (SELECT 
+     CASE WHEN deal_Duration__c<0 THEN 0
+     ELSE deal_Duration__c 
+     END AS Life_In_days FROM threekit.salesforce_opportunity WHERE recordtypeid='0120b0000006dJyAAI')
+
+     SELECT AVG(Life_In_days) AS AVG_Life_In_days FROM a;
+
+-- O4) Sale opportunties Win Ratio considering all records of Sales recordtypeid
+
+WITH a AS(SELECT count(id) AS Total_WON FROM threekit.salesforce_opportunity WHERE ISWON IS TRUE AND recordtypeid='0120b0000006dJtAAI'),
+
+     b AS (SELECT Count(id) AS Total_SalesOppORtunties FROM threekit.salesforce_opportunity WHERE  recordtypeid='0120b0000006dJtAAI')
+
+     SELECT Total_WON,Total_SalesOppORtunties,(Total_WON::FLOAT/Total_SalesOppORtunties::FLOAT) *100.0 AS SalesOppORtunities_Win_Ratio FROM a,b;
+
+--O5) Service opportunities Win Ratio considering all records of service recordtypeid
+
+WITH a AS(SELECT count(id) AS Total_WON FROM threekit.salesforce_opportunity WHERE ISWON IS TRUE AND recordtypeid='0120b0000006dJyAAI'),
+
+     b AS (SELECT Count(id) AS Total_ServiceOpportunties FROM threekit.salesforce_opportunity WHERE  recordtypeid='0120b0000006dJyAAI')
+
+     SELECT Total_WON,Total_ServiceOppORtunties,(Total_WON::FLOAT/Total_ServiceOppORtunties::FLOAT)*100.0 AS ServiceOppORtunities_Win_Ratio FROM a,b;
+
+--O6) Open Sales opportunities stageWise (with stagenames currently in Use)
+
+SELECT Stagename,Count(id) FROM threekit.salesforce_opportunity WHERE recordtypeid='0120b0000006dJtAAI' AND isclosed IS FALSE AND stagename Not IN('(AE) Personal Nurture','Missed Deal','Buried','7. Closed Won','8. Closed Won','Closed Won') GROUP BY stagename ;
+
+-- O6A) Open Service OppORtunties stageWise (WITH stagenames currently in Use )
+
+SELECT Count(id),Stagename FROM threekit.salesforce_opportunity WHERE recordtypeid='0120b0000006dJyAAI' AND isclosed IS FALSE AND stagename Not IN('Project on Hold','8. Closed Won') GROUP BY stagename ;
+
+
+-- O7) AVG age(days) of Open Sales Opportunties GROUPED BY stagename
+
+SELECT Stagename,AVG(deal_Duration__c) FROM threekit.salesforce_opportunity WHERE recordtypeid='0120b0000006dJtAAI' AND isclosed IS FALSE AND stagename Not IN('(AE) Personal Nurture','Missed Deal','Buried','7. Closed Won','8. Closed Won','Closed Won') GROUP BY stagename  ;
+
+-- O8) AVG age(days) of Open Service Opportutnies GROUPED BY Stagename
+
+SELECT Stagename,AVG(deal_Duration__c) FROM threekit.salesforce_opportunity WHERE recordtypeid='0120b0000006dJyAAI' AND isclosed IS FALSE AND stagename Not IN('Project on Hold','8. Closed Won') GROUP BY stagename ;
+
+-- 09) AVG age(days) of Closed Won Sales Opportunties
+
+SELECT Stagename,AVG(deal_Duration__c) FROM threekit.salesforce_opportunity WHERE recordtypeid='0120b0000006dJtAAI' AND isclosed IS TRUE AND stagename IN('6. Closed Won') GROUP BY Stagename ;
+
+
+
+-- L1) Avg Days taken to convert Leads
+
+WITH a AS(SELECT id, datediff(day,createddate::DATE,converteddate::DATE) AS Converted_In_Days  FROM threekit.salesforce_LEAD WHERE isconverted IS TRUE)
+
+     SELECT AVG(Converted_In_Days) AS AVG_Age_FOR_Lead_Conversion FROM a;
+
+ -- L) Leads BY leadsource
+
+ --SELECT LEADSOURCE,count(id) FROM threekit.salesforce_lead GROUP BY leadsource ORDER BY count(id) desc;
+
+ --L2) Leads wihtout Leadsource
+
+ SELECT Count(id) FROM threekit.salesforce_lead WHERE leadsource Is Null;
+
+ --L3) Lead Conversion Ratio
+ 
+WITH a AS(SELECT count(id) AS Count_ConvertedLeads FROM threekit.salesforce_lead WHERE isconverted IS TRUE),
+
+     b AS (SELECT count(id) AS Total_Leads FROM threekit.salesforce_lead)
+
+     SELECT Count_ConvertedLeads,Total_Leads, (Count_ConvertedLeads::FLOAT/Total_Leads::FLOAT)*100.0 AS Lead_Conversion_Ratio FROM a,b;
+
+ --L) Leads Converted GROUP BY LeadSource
+ 
+-- SELECT LEADSOURCE,Count(id)FROM threekit.salesforce_lead WHERE isconverted IS TRUE GROUP BY leadsource ORDER BY count(id) desc;
+
+--WITH a AS (SELECT LEADSOURCE A_LeadSource ,Count(id) AS Converted_Leads_BY_Leadsource FROM threekit.salesforce_lead WHERE isconverted IS TRUE GROUP BY leadsource ORDER BY count(id) desc),
+
+     b AS (SELECT Leadsource B_LeadSource,count(id) AS Total_Leads_BY_Leadsource FROM threekit.salesforce_LEAD GROUP BY leadsource)
+
+     SELECT A_LeadSource AS Lead_Source,Converted_Leads_BY_Leadsource,Total_Leads_BY_Leadsource FROM a,b WHERE A_LeadSource=B_LeadSource ORDER BY Converted_Leads_BY_Leadsource desc ;
+
+ --L) Lead ConvertiON ratio BY Leadsource
+ 
+WITH a AS (SELECT LEADSOURCE A_LeadSource ,Count(id) AS Converted_Leads_BY_Leadsource FROM threekit.salesforce_lead WHERE isconverted IS TRUE GROUP BY leadsource ORDER BY count(id) desc),
+
+     b AS (SELECT Leadsource B_LeadSource,count(id) AS Total_Leads_BY_Leadsource FROM threekit.salesforce_LEAD GROUP BY leadsource)
+
+     SELECT A_LeadSource AS Lead_Source,Converted_Leads_BY_Leadsource,Total_Leads_BY_Leadsource,(Converted_Leads_BY_Leadsource::FLOAT/Total_Leads_BY_Leadsource::FLOAT)*100.0 AS Lead_Conversion_Ratio_BY_Leadsource FROM a,b WHERE A_LeadSource=B_LeadSource ORDER BY Lead_Conversion_Ratio_BY_Leadsource desc ;
+     
+--  L4) Lead Source with max no of leads
+
+SELECT LEADSOURCE,count(id) FROM threekit.salesforce_lead GROUP BY leadsource ORDER BY count(id) DESC LIMIT 1;
+
+-- L5) Lead source with least conversion ration
+     WITH a AS (SELECT LEADSOURCE A_LeadSource ,Count(id) AS Converted_Leads_BY_Leadsource FROM threekit.salesforce_lead WHERE isconverted IS TRUE GROUP BY leadsource ORDER BY count(id) desc),
+
+     b AS (SELECT Leadsource B_LeadSource,count(id) AS Total_Leads_BY_Leadsource FROM threekit.salesforce_LEAD GROUP BY leadsource)
+
+     SELECT A_LeadSource AS Lead_Source,Converted_Leads_BY_Leadsource,Total_Leads_BY_Leadsource,(Converted_Leads_BY_Leadsource::FLOAT/Total_Leads_BY_Leadsource::FLOAT)*100.0 AS Lead_Conversion_Ratio_BY_Leadsource FROM a,b WHERE A_LeadSource=B_LeadSource ORDER BY Lead_Conversion_Ratio_BY_Leadsource  LIMIT 1;
+     
+-- L6) Leads with 'Nurture' Status
+
+WITH a AS(SELECT COUNT(lead.id) AS Nurture_Leads FROM threekit.salesforce_lead lead WHERE lead.status='Nurture'),
+
+     b AS (SELECT COUNT(*) AS Total_Leads FROM threekit.salesforce_lead)
+     
+     SELECT Nurture_Leads,Total_Leads,(Nurture_Leads::FLOAT/Total_Leads::FLOAT)*100.0 AS Percentage FROM a,b;
+     
+
+     
+
+--Accounts
+
+--A1) Top Account with most Open Sales Opportunties
+
+SELECT acc.name AS account_name,opp.accountid,COUNT(opp.id) Count_Opportunities FROM threekit.salesforce_opportunity AS opp 
+
+LEFT JOIN threekit.salesforce_account AS acc on opp.accountid = acc.id
+
+WHERE opp.isclosed IS FALSE and opp.recordtypeid='0120b0000006dJtAAI' GROUP BY opp.accountid,acc.name HAVING COUNT(opp.id)>1 ORDER BY Count_Opportunities DESC LIMIT 1;
+
+
+--A2) Top Account with most Open Service Opportunties
+
+SELECT acc.name AS account_name,opp.accountid,COUNT(opp.id) Count_Opportunities FROM threekit.salesforce_opportunity AS opp 
+
+LEFT JOIN threekit.salesforce_account AS acc on opp.accountid = acc.id
+
+WHERE opp.isclosed IS FALSE and opp.recordtypeid='0120b0000006dJyAAI' GROUP BY opp.accountid,acc.name HAVING COUNT(opp.id)>1 ORDER BY Count_Opportunities DESC LIMIT 1;
+ 
+
+-- A3) Top Account with most  Closed Won Sale Opportunities
+
+SELECT acc.name AS account_name,opp.accountid,COUNT(opp.id) Count_Opportunities FROM threekit.salesforce_opportunity AS opp 
+
+LEFT JOIN threekit.salesforce_account AS acc on opp.accountid = acc.id
+
+WHERE opp.iswon IS TRUE and opp.recordtypeid='0120b0000006dJtAAI' GROUP BY opp.accountid,acc.name HAVING COUNT(opp.id)>1 ORDER BY Count_Opportunities DESC LIMIT 1;
+
+--A4)Top Account with most Closed Won Service Opportunities
+
+SELECT acc.name AS account_name,opp.accountid,COUNT(opp.id) Count_Opportunities FROM threekit.salesforce_opportunity AS opp 
+
+LEFT JOIN threekit.salesforce_account AS acc on opp.accountid = acc.id
+
+WHERE opp.iswon IS TRUE and opp.recordtypeid='0120b0000006dJyAAI' GROUP BY opp.accountid,acc.name HAVING COUNT(opp.id)>1 ORDER BY Count_Opportunities DESC LIMIT 1;
+
+-- A5) Account with most closed lost sale opportuntiies
+
+SELECT acc.name AS account_name,opp.accountid,COUNT(opp.id) Count_Opportunities FROM threekit.salesforce_opportunity AS opp 
+
+LEFT JOIN threekit.salesforce_account AS acc on opp.accountid = acc.id
+
+WHERE opp.iswon IS FALSE AND opp.isclosed IS TRUE  AND opp.recordtypeid='0120b0000006dJtAAI' GROUP BY opp.accountid,acc.name HAVING COUNT(opp.id)>1 ORDER BY Count_Opportunities DESC LIMIT 1;
+
+-- A6) Account with most closed lost service opportuniites
+SELECT acc.name AS account_name,opp.accountid,COUNT(opp.id) Count_Opportunities FROM threekit.salesforce_opportunity AS opp 
+
+LEFT JOIN threekit.salesforce_account AS acc on opp.accountid = acc.id
+
+WHERE opp.iswon IS FALSE AND opp.isclosed IS TRUE  AND opp.recordtypeid='0120b0000006dJyAAI' GROUP BY opp.accountid,acc.name HAVING COUNT(opp.id)>1 ORDER BY Count_Opportunities DESC LIMIT 1;
+
+-- A7) Duplicate Accounts
+SELECT name,webiste FROM threekit.salesforce_account WHERE name IN
+(SELECT   name, COUNT(Id) FROM threekit.salesforce_account GROUP BY  name HAVING COUNT(id) > 1);
+
+
+
+-- CONTACT
+
+--C1) Duplicate Contacts with Same Email  Contacts
+
+SELECT name,email,COUNT(id) FROM threekit.salesforce_contact GROUP BY email,name HAVING COUNT(name) > 1;
+
+-- C2) Duplicate Contacts with name Under Same Accounts
+
+SELECT name,accountid,COUNT(id) FROM threekit.salesforce_contact GROUP BY accountid,name HAVING COUNT(id) > 1;
