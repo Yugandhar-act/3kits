@@ -1,0 +1,271 @@
+
+
+-- O1). Open Sales Opportunites WITHout a contact role
+
+WITH a AS (SELECT COUNT(O.Id) AS Open_Opps_WO_Contacts FROM threekit.salesforce_OPPORTUNITY O 
+
+LEFT JOIN threekit.salesforce_opportunitycontactrole OCR ON O.Id = OCR.OPPORTUNITYID 
+
+WHERE OCR.OPPORTUNITYID IS NULL AND O.isclosed IS FALSE AND O.recordtypeid='0120b0000006dJtAAI'),
+
+     b AS (SELECT Count(Id) AS All_Open_Opps  FROM threekit.salesforce_OPPORTUNITY WHERE isclosed IS FALSE AND recordtypeid='0120b0000006dJtAAI')
+
+     SELECT Open_Opps_WO_Contacts,All_Open_Opps ,(Open_Opps_WO_Contacts::FLOAT/All_Open_Opps::FLOAT)*100  AS Percentage_OPEN_Opps_WO_Contacts FROM a,b;
+
+
+--O3).Open Sales Opportunities WITH only one Contact
+
+WITH b AS (WITH a AS (SELECT count(OCR.opportunityid) AS Contacs_Count,OpportunityId,O.NAME Opportunity_Name   FROM threekit.salesforce_opportunitycontactrole OCR
+
+LEFT JOIN threekit.salesforce_OPPORTUNITY O on O.Id= OCR.OPPORTUNITYID
+
+WHERE OCR.OpportunityId IS NOT NULL AND O.IsClosed IS FALSE AND O.recordtypeid ='0120b0000006dJtAAI'  GROUP BY OCR.OpportunityId,O.NAME  HAVING COUNT(OCR.id)<2)
+
+SELECT Count(*) AS Open_Opps_w_SingleContact FROM a),
+
+     c AS (SELECT Count(ID) AS All_Open_Opps  FROM threekit.salesforce_OPPORTUNITY WHERE isclosed=false AND recordtypeid='0120b0000006dJtAAI')
+
+     SELECT Open_Opps_w_SingleContact,All_Open_Opps, (Open_Opps_w_SingleContact::FLOAT/All_Open_Opps::FLOAT)*100.0 AS Percentage_Open_Opps_W_Single_contact FROM b,c;
+
+--O4) Open Sales Opportunties WITH atleast one important fields missing such as Amount
+
+WITH a AS (SELECT count(id) Opportunties_WO_ImportantFields FROM threekit.salesforce_opportunity WHERE (Amount IS NULL OR Sales_Manager__c IS NULL) AND IsClosed IS FALSE AND recordtypeId='0120b0000006dJtAAI'),
+
+     b AS (SELECT Count(ID) AS All_Open_Opps  FROM threekit.salesforce_OPPORTUNITY WHERE isclosed IS FALSE AND recordtypeid='0120b0000006dJtAAI')
+
+     SELECT Opportunties_WO_ImportantFields,All_Open_Opps,(Opportunties_WO_ImportantFields::FLOAT/All_Open_Opps::FLOAT)*100 AS Percentage_Opportunties_WO_ImportantFields FROM a,b;
+
+
+    
+
+--O5) Open Sales Opportunities WITH overdue tasks
+
+WITH a AS (SELECT Count(Id) Open_Opps_W_OverDueTask FROM threekit.salesforce_Opportunity WHERE  HasOverdueTask = TRUE AND isclosed IS FALSE AND recordtypeid='0120b0000006dJtAAI'),
+
+     b AS (SELECT Count(ID) AS All_Open_Opps  FROM threekit.salesforce_OPPORTUNITY WHERE isclosed IS FALSE AND recordtypeid='0120b0000006dJtAAI')
+     
+     SELECT Open_Opps_W_OverDueTask,All_Open_Opps, (Open_Opps_W_OverDueTask::FLOAT/All_Open_Opps::FLOAT)*100.0 AS Percentage_Open_Opps_W_OverDueTasks FROM a,b;
+
+
+
+--O6). Open Sales Opportunties WITH closedate in the Past
+
+WITH a AS (SELECT Count(Id) Open_Opps_W_CloseDate_Past FROM threekit.salesforce_Opportunity WHERE IsClosed IS FALSE AND CloseDate < current_date AND recordtypeId='0120b0000006dJtAAI'),
+
+     b AS (SELECT Count(Id) AS All_Open_Opps  FROM threekit.salesforce_OPPORTUNITY WHERE isclosed IS FALSE AND recordtypeid='0120b0000006dJtAAI')
+     
+     SELECT Open_Opps_W_CloseDate_Past,All_Open_Opps, (Open_Opps_W_CloseDate_Past::FLOAT/All_Open_Opps::FLOAT)*100 AS Percentage_Open_Opps_W_CloseDate_Past FROM a,b;
+     
+
+--O7) Open Sales Opportuntiies WITHout "nextStep" 
+
+WITH a AS (SELECT count(id) Opportunties_WO_NextStep FROM threekit.salesforce_opportunity WHERE (NextStep IS NULL) AND IsClosed IS FALSE AND recordtypeId='0120b0000006dJtAAI'),
+
+     b AS (SELECT Count(ID) AS All_Open_Opps  FROM threekit.salesforce_OPPORTUNITY WHERE isclosed IS FALSE AND recordtypeid='0120b0000006dJtAAI')
+
+     SELECT Opportunties_WO_NextStep,All_Open_Opps,(Opportunties_WO_NextStep/All_Open_Opps)*100.0 AS Percentage_Opportunties_wo_Neststep FROM a,b;
+     
+
+--O8).Open Sales Opportunities WITH Open future Activity
+
+WITH a AS (SELECT Count(id) AS Opportunities_w_Open_FutureActivity FROM threekit.salesforce_opportunity WHERE recordtypeId='0120b0000006dJtAAI' AND isclosed IS FALSE AND  lastactivitydate >= Current_date),
+
+     b AS (SELECT Count(ID) AS All_Open_Opps  FROM threekit.salesforce_OPPORTUNITY WHERE isclosed=false AND recordtypeid='0120b0000006dJtAAI')
+
+     SELECT Opportunities_w_Open_FutureActivity,All_Open_Opps, (Opportunities_w_Open_FutureActivity::FLOAT/All_Open_Opps::FLOAT)*100.0 AS Percentage_Opportunties_W_Open_FutureActivity FROM a,b;
+     
+
+-- O9) Open Sales Opportuntiies WITHout recent activity in last 15 days
+
+WITH b AS (WITH a AS (SELECT id,lastactivitydate FROM threekit.salesforce_opportunity WHERE isclosed IS FALSE AND recordtypeid='0120b0000006dJtAAI' AND (datediff(day,lastactivitydate,current_date) > 15 OR lastactivitydate IS NULL))
+
+     SELECT Count(*) AS Opportunties_WO_RecentActivity FROM a),
+
+     c AS (SELECT Count(ID) AS All_Open_Opps  FROM threekit.salesforce_OPPORTUNITY WHERE isclosed IS FALSE AND recordtypeid='0120b0000006dJtAAI')
+
+     SELECT Opportunties_WO_RecentActivity,All_Open_Opps,(Opportunties_WO_RecentActivity::FLOAT/All_Open_Opps::FLOAT)*100 AS Percentage_Opportunities_WO_RecentActivities FROM b,c;
+     
+-- O10) Open Sales Opportunities WITHOUT activities;
+
+WITH a AS (SELECT COUNT(id) AS Opportunities_wo_Activity FROM threekit.salesforce_opportunity WHERE recordtypeId='0120b0000006dJtAAI' AND isclosed IS FALSE AND  lastactivitydate IS NULL  ),
+
+     b AS (SELECT Count(ID) AS All_Open_Opps  FROM threekit.salesforce_OPPORTUNITY WHERE isclosed=false AND recordtypeid='0120b0000006dJtAAI')
+
+     SELECT Opportunities_wo_Activity,All_Open_Opps, (Opportunities_wo_Activity::FLOAT/All_Open_Opps::FLOAT)*100.0 AS Percentage_Opportunties_WO_Activity FROM a,b;
+     
+
+     
+
+
+
+--A2) Accounts WITH only 1 contact
+
+WITH b AS (WITH a AS (SELECT count(C.id),A.NAME Account_Name FROM threekit.salesforce_CONTACT C
+
+     LEFT JOIN threekit.salesforce_ACCOUNT A ON A.Id=C.ACCOUNTID
+
+     WHERE accountid Is NOT NULL GROUP by C.accountid,A.NAME HAVING count(C.id)=1)
+
+     SELECT Count(*) Accounts_W_Single_contact FROM a),
+
+     c AS (SELECT Count(*) as All_Accounts FROM threekit.salesforce_account)
+
+     SELECT Accounts_W_Single_contact, All_Accounts, (Accounts_W_Single_contact::FLOAT/All_Accounts::FLOAT)*100.0 AS Percent_Accounts_w_Single_Contact FROM b,c;
+
+-- A1). Accounts WITHout Contacts
+
+WITH b AS (WITH a AS (SELECT distinct(a.id) , a.type, a.recordtypeid FROM threekit.salesforce_Account a
+
+     Left Join threekit.salesforce_Contact c on a.id=c.accountid WHERE c.accountid Is Null)
+
+     SELECT count(*) AS Accounts_WO_Contacts FROM a),
+
+     c AS (SELECT Count(*) As All_Accounts FROM threekit.salesforce_account)
+
+     SELECT Accounts_WO_Contacts,All_Accounts, (Accounts_WO_Contacts::FLOAT/All_Accounts::FLOAT)*100.0 AS Percentage_Accounts_WO_Contacts FROM b,c;
+
+-- A3) Accounts WITHout Opportunities
+
+WITH b AS (WITH a AS (SELECT distinct(a.Id) FROM threekit.salesforce_account a
+
+     left join threekit.salesforce_opportunity o on a.id=o.accountid WHERE o.accountid Is Null)
+
+     SELECT count(ID) AS Accounts_WO_Opportunties FROM a),
+
+     c AS (SELECT Count(*) AS All_Accounts FROM threekit.salesforce_account)
+
+     SELECT Accounts_WO_Opportunties,All_Accounts,(Accounts_WO_Opportunties::FLOAT/All_Accounts::FLOAT)*100.0 AS Percentage_Accounts_WO_Opportunties FROM b,c;
+
+
+-- A4) Accounts WITHout Recent activities in Last 90 days
+
+WITH b AS (WITH a AS (SELECT Id,lastactivitydate FROM threekit.salesforce_account WHERE ((datediff(day,lastactivitydate,current_date) > 90) OR lastactivitydate IS NULL)  ORDER BY lastactivitydate desc )
+
+     SELECT count(*) AS Accounts_WO_RecentActivities FROM a),
+
+     c  AS (SELECT Count(*) AS All_Accounts FROM threekit.salesforce_account)
+
+     SELECT Accounts_WO_RecentActivities,All_Accounts,(Accounts_WO_RecentActivities::FLOAT/All_Accounts::FLOAT)*100 AS Percentage_Accounts_WO_RecentActiviites FROM b,c;
+     
+
+
+
+-- CONTACTS
+-- C1) Contacts WITH all important fields(Title,phone,Mobilephone etc) missing 
+
+WITH a AS (SELECT Count(id) AS Contacts_WO_All_Important_Fields FROM threekit.salesforce_contact WHERE Title IS NULL AND phone IS NULL AND mobilephone IS NUll ),
+
+     b AS (SELECT Count(*) AS Total_Contacts FROM threekit.salesforce_contact)
+
+     SELECT Contacts_WO_All_Important_Fields,Total_Contacts, (Contacts_WO_All_Important_Fields::FLOAT/Total_Contacts::FLOAT)*100.0 PERCENTAGE_CONTACTS_WO_all_IMP_FIELDS FROM a,b;
+     
+
+-- C2) Contacts WITH atleast one of the Important fields(Title,phone,Mobilephone,LinkedIn_URL etc) missing
+
+WITH a AS(SELECT Count(id) AS Contacts_WO_Atleast_1_ImportantField  FROM threekit.salesforce_contact WHERE Title IS NULL OR phone IS NULL OR mobilephone IS NUll ),
+
+     b AS (SELECT Count(*) AS Total_Contacts FROM threekit.salesforce_contact)
+
+     SELECT Contacts_WO_Atleast_1_ImportantField,Total_Contacts, (Contacts_WO_Atleast_1_ImportantField::FLOAT/Total_Contacts::FLOAT)*100.0 PERCENTAGE_CONTACTS_WO_OneOfThe_IMP_FIELDS FROM a,b;
+
+-- LEADS
+-- L1) Leads wihtout Leadsource
+
+WITH a AS (SELECT Count(id) AS Leads_WO_LeadSource FROM threekit.salesforce_lead WHERE leadsource Is Null),
+
+     b AS (SELECT COUNT(id) AS Total_Leads FROM threekit.salesforce_lead)
+     
+     SELECT Leads_WO_LeadSource,Total_Leads, (Leads_WO_LeadSource::FLOAT/Total_Leads::FLOAT)*100.0 AS PERCENTAGE_Leads_WO_LeadSource from a,b;
+     
+     
+ -- L2) Leads With all Importnat Fields(leadsource,Title,Sales_Notes__c,Lead_Quality__c .,etc) Missing
+ 
+ WITH a AS (SELECT Count(id) AS Leads_WO_IMP_FIELDS FROM threekit.salesforce_lead WHERE leadsource Is Null AND Title IS NULL AND Sales_Notes__c IS NULL AND Lead_Quality__c IS NULL),
+
+     b AS (SELECT COUNT(id) AS TOtal_Leads FROM threekit.salesforce_lead)
+     
+     SELECT Leads_WO_IMP_FIELDS,TOtal_Leads, (Leads_WO_IMP_FIELDS::FLOAT/TOtal_Leads::FLOAT)*100.0 AS PERCENTAGE_Leads_WO_LeadSource from a,b;
+     
+     
+-- Active Reps
+
+--Sales User,Customer Success,Customer Support,Marketing Users,Executive Leadership
+
+-- Active Reps with out any task in Last 15 days
+
+WITH b AS
+(WITH a AS (SELECT u.id, u.name,u.profileid,p.id,p.name FROM threekit.salesforce_user  u
+LEFT JOIN threekit.salesforce_profile p ON u.profileid=p.id
+LEFT JOIN threekit.salesforce_task t ON u.id = t.ownerid AND t.activitydate >= DATEADD(day, -15, GETDATE())
+WHERE t.ownerid IS NULL AND u.isactive IS TRUE AND p.name IN ('Sales User','Marketing Users','Customer Support','Executive Leadership','Customer Success'))
+
+SELECT COUNT(*)AS Active_Reps_WO_RecentTasks FROM a),
+
+
+ d AS
+(WITH c AS (SELECT u.id, u.name,u.profileid,p.id,p.name FROM threekit.salesforce_user u
+LEFT JOIN threekit.salesforce_profile p ON u.profileid=p.id
+WHERE u.isactive IS TRUE AND p.name IN ('Sales User','Marketing Users','Customer Support','Executive Leadership','Customer Success'))
+
+SELECT COUNT(*)AS Total_Active_Reps FROM c)
+
+SELECT Active_Reps_WO_RecentTasks,Total_Active_Reps,(Active_Reps_WO_RecentTasks::FLOAT/Total_Active_Reps::FLOAT)*100.0 AS Percentage_Reps_WO_RecentTasks FROM b,d;
+
+
+--Active Reps with out any task in Last 30 days
+WITH b AS
+(WITH a AS (SELECT u.id, u.name,u.profileid,p.id,p.name FROM threekit.salesforce_user  u
+LEFT JOIN threekit.salesforce_profile p ON u.profileid=p.id
+LEFT JOIN threekit.salesforce_task t ON u.id = t.ownerid AND t.activitydate >= DATEADD(day, -30, GETDATE())
+WHERE t.ownerid IS NULL AND u.isactive IS TRUE AND p.name IN ('Sales User','Marketing Users','Customer Support','Executive Leadership','Customer Success'))
+
+SELECT COUNT(*)AS Active_Reps_WO_RecentTasks FROM a),
+
+
+ d AS
+(WITH c AS (SELECT u.id, u.name,u.profileid,p.id,p.name FROM threekit.salesforce_user u
+LEFT JOIN threekit.salesforce_profile p ON u.profileid=p.id
+WHERE u.isactive IS TRUE AND p.name IN ('Sales User','Marketing Users','Customer Support','Executive Leadership','Customer Success'))
+
+SELECT COUNT(*)AS Total_Active_Reps FROM c)
+
+SELECT Active_Reps_WO_RecentTasks,Total_Active_Reps,(Active_Reps_WO_RecentTasks::FLOAT/Total_Active_Reps::FLOAT)*100.0 AS Percentage_Reps_WO_RecentTasks FROM b,d;
+
+
+-- Active Reps with out any event in Last 15 days
+WITH b AS
+(WITH a AS (SELECT u.id, u.name,u.profileid,p.id,p.name FROM threekit.salesforce_user  u
+LEFT JOIN threekit.salesforce_profile p ON u.profileid=p.id
+LEFT JOIN threekit.salesforce_event e ON u.id = e.ownerid AND e.activitydate >= DATEADD(day, -15, GETDATE())
+WHERE e.ownerid IS NULL AND u.isactive IS TRUE AND p.name IN ('Sales User','Marketing Users','Customer Support','Executive Leadership','Customer Success'))
+
+SELECT COUNT(*)AS Active_Reps_WO_RecentEvents FROM a),
+
+
+ d AS
+(WITH c AS (SELECT u.id, u.name,u.profileid,p.id,p.name FROM threekit.salesforce_user u
+LEFT JOIN threekit.salesforce_profile p ON u.profileid=p.id
+WHERE u.isactive IS TRUE AND p.name IN ('Sales User','Marketing Users','Customer Support','Executive Leadership','Customer Success'))
+
+SELECT COUNT(*)AS Total_Active_Reps FROM c)
+
+SELECT Active_Reps_WO_RecentEvents,Total_Active_Reps,(Active_Reps_WO_RecentEvents::FLOAT/Total_Active_Reps::FLOAT)*100.0 AS Percentage_Reps_WO_RecentEvents FROM b,d;
+
+-- Active Reps with out any event in Last 30 days
+WITH b AS
+(WITH a AS (SELECT u.id, u.name,u.profileid,p.id,p.name FROM threekit.salesforce_user  u
+LEFT JOIN threekit.salesforce_profile p ON u.profileid=p.id
+LEFT JOIN threekit.salesforce_event e ON u.id = e.ownerid AND e.activitydate >= DATEADD(day, -30, GETDATE())
+WHERE e.ownerid IS NULL AND u.isactive IS TRUE AND p.name IN ('Sales User','Marketing Users','Customer Support','Executive Leadership','Customer Success'))
+
+SELECT COUNT(*)AS Active_Reps_WO_RecentEvents FROM a),
+
+
+ d AS
+(WITH c AS (SELECT u.id, u.name,u.profileid,p.id,p.name FROM threekit.salesforce_user u
+LEFT JOIN threekit.salesforce_profile p ON u.profileid=p.id
+WHERE u.isactive IS TRUE AND p.name IN ('Sales User','Marketing Users','Customer Support','Executive Leadership','Customer Success'))
+
+SELECT COUNT(*)AS Total_Active_Reps FROM c)
+
+SELECT Active_Reps_WO_RecentEvents,Total_Active_Reps,(Active_Reps_WO_RecentEvents::FLOAT/Total_Active_Reps::FLOAT)*100.0 AS Percentage_Reps_WO_RecentEvents FROM b,d;
